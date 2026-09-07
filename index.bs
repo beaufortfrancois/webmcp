@@ -108,6 +108,7 @@ spec: ECMASCRIPT; urlPrefix: https://tc39.es/ecma262/
   type: dfn
     text: surrounding agent; url: surrounding-agent
     text: agent cluster; url: sec-agent-clusters
+    text: is not an object; url: sec-object-type
 </pre>
 
 <h2 id="intro">Introduction</h2>
@@ -923,7 +924,7 @@ The <dfn method for=ModelContext>executeTool(<var>tool</var>, <var>inputObject</
 
 1. If |inputObject| is not {{undefined}}, then:
 
-   1. If |inputObject| [=Object type|is not an Object=], then return [=a promise rejected with=] a
+   1. If |inputObject| [=is not an Object=], then return [=a promise rejected with=] a
       {{TypeError}}.
 
    1. Set |inputArguments| to the result of [=serializing a JavaScript value to a JSON string=]
