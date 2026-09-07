@@ -1,8 +1,8 @@
-# Implementation Status
+# Browser and Agent Implementation Status
 
-This document shows the implementation status of WebMCP across different browsers.
+This document shows the implementation status of WebMCP across different browsers and agents.
 
-<a href="#brave"><img width=64 src="https://raw.githubusercontent.com/alrra/browser-logos/master/src/brave/brave_128x128.png" alt="Brave logo"></a> <a href="#chrome"><img width=64 src="https://raw.githubusercontent.com/alrra/browser-logos/master/src/chrome/chrome_128x128.png" alt="Chrome logo"></a> <a href="#edge"><img width=64 src="https://raw.githubusercontent.com/alrra/browser-logos/master/src/edge/edge_128x128.png" alt="Edge logo"></a> <a href="#firefox"><img width=64 src="https://raw.githubusercontent.com/alrra/browser-logos/master/src/firefox/firefox_128x128.png" alt="Firefox logo"></a> <a href="#safari"><img width=64 src="https://raw.githubusercontent.com/alrra/browser-logos/master/src/safari/safari_128x128.png" alt="Safari logo"></a>
+<a href="#brave"><img width=64 src="https://raw.githubusercontent.com/alrra/browser-logos/master/src/brave/brave_128x128.png" alt="Brave logo"></a> <a href="#chatgpt-desktop"><picture><source media="(prefers-color-scheme: dark)" srcset="assets/openai-white.svg"><source media="(prefers-color-scheme: light)" srcset="assets/openai.svg"><img width=64 src="assets/openai.svg" alt="OpenAI logo"></picture></a> <a href="#chrome"><img width=64 src="https://raw.githubusercontent.com/alrra/browser-logos/master/src/chrome/chrome_128x128.png" alt="Chrome logo"></a> <a href="#edge"><img width=64 src="https://raw.githubusercontent.com/alrra/browser-logos/master/src/edge/edge_128x128.png" alt="Edge logo"></a> <a href="#firefox"><img width=64 src="https://raw.githubusercontent.com/alrra/browser-logos/master/src/firefox/firefox_128x128.png" alt="Firefox logo"></a> <a href="#safari"><img width=64 src="https://raw.githubusercontent.com/alrra/browser-logos/master/src/safari/safari_128x128.png" alt="Safari logo"></a>
 
 # Brave
 
@@ -10,9 +10,15 @@ Experimental support is added to [Leo AI chat](https://brave.com/leo/).
 
 * [Issue 55232](https://github.com/brave/brave-browser/issues/55232)
 
+# ChatGPT Desktop
+
+WebMCP is supported in [ChatGPT Desktop](https://chatgpt.com/download/).
+
 # Chrome
 
 An [Origin Trial](https://developer.chrome.com/blog/ai-webmcp-origin-trial) is live in Chrome 149.
+
+For [local development](https://developer.chrome.com/docs/ai/webmcp#local_webmcp), enable the `about:flags#enable-webmcp-testing` flag.
 
 * [Early preview program](https://developer.chrome.com/docs/ai/join-epp)
 * [Intent to Experiment](https://groups.google.com/a/chromium.org/g/blink-dev/c/gmYffo5WOE8/m/OJxuQRP3AAAJ)

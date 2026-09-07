@@ -4,7 +4,7 @@ WebMCP lets developers expose web application functionality—either JavaScript 
 
 TypeScript type definitions for WebMCP are available in the [`webmcp-types`](https://www.npmjs.com/package/webmcp-types) npm package.
 
-See [Implementation Status](implementation-status.md) for browser support.
+See [Implementation Status](implementation-status.md) for browser and agent support, and [Best Practices](#best-practices) for guidance on designing effective tools.
 
 ## Background and Motivation
 
@@ -28,45 +28,56 @@ Backend integrations work well for server-side actions, but they pose significan
 #### WebMCP In-browser tool flow
 
 ```mermaid
-graph TD
-    subgraph WB["<b><i>Web browser</i></b>"]
-        BA["Browser-integrated AI agent"]
-        subgraph RP["Running Page 'index.html'"]
-            WMCP["WebMCP tools"]
-        end
-    end
+sequenceDiagram
+    participant Page as Running Page<br/>index.html
+    participant Agent as Browser-integrated<br/>AI agent
+    participant AI as AI agent platform
+    participant Service as Third-party origin<br/>example.com
 
-    AI["<b><i>AI agent platform</i></b>"]
-    TP["<b><i>Third-party service<br>(example.com)</i></b>"]
+    Agent->>AI: 1. Send user prompt
 
-    %% Connections
-    TP -->|"1. Browser loads page over HTTP"| RP
-    AI <-->|"2. LLM in the cloud communicates with a browser AI agent to act on web content"| BA
-    BA <-->|"3. Browser agent uses WebMCP tools to actuate the current page"| WMCP
-    WMCP -->|"4. WebMCP tools update UI and make API calls"| TP
+    AI-->>Agent: 2. Inspect or act on<br/>the current page
+
+    Agent->>Page: 3. Invoke page-provided<br/>WebMCP tool
+
+    Page->>Service: 4. Make API call as needed
+    Service-->>Page: API response
+
+    Page->>Page: 5. Update application state<br/>and visible UI
+
+    Page-->>Agent: 6. WebMCP tool result
+    Agent-->>AI: Tool result
+
+    Note over Page,Agent: Site-owned code performs the<br/> action and keeps its UI in sync
 ```
 
 #### Direct backend MCP flow
 
 ```mermaid
-graph TD
-    AI["<b><i>AI agent platform</i></b>"]
+sequenceDiagram
+    participant Page as Running Page<br/>index.html
+    participant Agent as Browser-integrated<br/>AI agent
+    participant AI as AI agent platform
+    participant Service as Third-party origin<br/>example.com
 
-    subgraph WB["<b><i>Web Browser</i></b>"]
-        BIA["Browser-integrated AI agent"]
-        RP["Running Page &lt;index.html&gt;"]
-    end
+    Agent->>AI: 1. Send user prompt
 
-    subgraph TP["<b><i>Third-party service (example.com)</i></b>"]
-        MCP[("MCP Server")]
-    end
+    AI-->>Agent: 2. Inspect or act on<br/>the current page
 
-    RP <-->|1. Browser loads page over HTTP| TP
-    BIA -->|2. User prompt sent to agent platform in the cloud.| AI
-    AI -->|"3. Agent platform uses pre-configured MCP server to interact directly with service and fulfill user request."| MCP
-    MCP -->|4a. MCP response routed back to agent platform.| AI
-    AI -->|5. Response rendered to user by browser agent. Web page has no direct visibility or control.| BIA
-    RP <-.->|4b. Service manually pushes updates to page.| TP
+    Agent->>Page: 3. Scrape / actuate via<br/>DOM and browser APIs
+    Page-->>Agent: Visible page state
+    Agent-->>AI: Page state
+
+    AI->>Service: 4. MCP call
+    Service-->>AI: MCP response
+
+    Note over Page,Service: Backend state may now differ from the visible page
+
+    AI-->>Agent: 5. Continue browser task<br/>with MCP result
+
+    Agent->>Page: 6. Scrape / actuate DOM<br/>to reconcile visible UI
+
+    Note over Page,Agent: Front-end state must be inferred<br/>and manipulated indirectly
 ```
 
 Many challenges faced by assistive technology also apply to AI agents that struggle to navigate existing human-first interfaces when agent-first "tools" are not available. Even when agents succeed, simple operations often require multiple steps and can be slow or unreliable.
@@ -89,11 +100,11 @@ The proposed API will not conflict with these existing automation techniques. If
 - **Prevent web content disintermediation**: Prevent disintermediation of web apps by backend integrations by adapting front-ends for use by agents, rather than replacing them.
 - **Code reuse**: Any task that a user can accomplish through a page's UI can be turned into a tool by reusing much of the page's existing client-side code.
 - **Improve accessibility through agents**: Enable agents to assist users of accessibility technology. WebMCP itself is not designed for ingestion by accessibility technology, nor is it designed to interact directly with a page's accessibility tree; rather, it enables agents to act as highly capable intermediaries (see [Issue #91](https://github.com/webmachinelearning/webmcp/issues/91)).
+- **Headless browsing scenarios**: Tools exposed for human-in-the-loop can also be used for task completion in headless scenarios, and is particularly useful when switching between human-in-the-loop and headless experiences.
 
 ### Non-Goals
 
-- **Headless browsing scenarios**: While it may be possible to run these tools in headless environments, this API is primarily designed for local browser workflows with a human in the loop.
-- **Fully autonomous workflows**: The API is not intended for fully autonomous agents operating without human oversight or where a browser UI is not present.
+- **Fully autonomous workflows**: The API is not intended for fully autonomous agents where a browser UI is not present, it is meant to be a client-side implementation that can also call server-side APIs. It would not make sense for purely server-side task completion.
 - **Replacement of backend integrations**: WebMCP is designed to complement, not replace, existing backend-focused protocols like MCP.
 - **Replacement of human interfaces**: The human web interface remains primary; agent tools augment rather than replace user interaction.
 
@@ -292,6 +303,8 @@ await document.modelContext.registerTool({
 // controller.abort();
 ```
 
+Tools can be unregistered at any time by aborting the signal. For applications with many potential tools, dynamically registering and unregistering them based on the active page state is a recommended pattern to avoid overloading the agent's context window (see [Best Practices](#best-practices)).
+
 ### Lifecycle of a Tool Call
 1. **Registration**: The web page registers one or more tools using `document.modelContext.registerTool()`.
 2. **Discovery**: An agent connected to the page queries the browser to discover the active list of tools and their schemas.
@@ -311,12 +324,7 @@ The reason WebMCP is not limited to only declarative form tools is for the same 
 
 ### Permissions policy and iframes
 
-While much of this explainer assumes integration with built-in browser agents, WebMCP also supports **author-provided agents**, such as agents embedded directly on a page or running in an iframe, that can collaborate with parent frames and nested contexts. See:
- - [Issue #57](https://github.com/webmachinelearning/webmcp/issues/57)
- - [Issue #117](https://github.com/webmachinelearning/webmcp/issues/117)
- - [Issue #159](https://github.com/webmachinelearning/webmcp/issues/159)
- - [Issue #160](https://github.com/webmachinelearning/webmcp/issues/160)
- - [Issue #178](https://github.com/webmachinelearning/webmcp/issues/178)
+While much of this explainer assumes integration with built-in browser agents, WebMCP also supports **author-provided agents**, such as agents embedded directly on a page or running in an iframe, that can collaborate with parent frames and nested contexts.
 
 By default, WebMCP is enabled in top-level `Window`s and its same-origin iframes, but access can be delegated to cross-origin iframes using the [Permissions Policy](https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Permissions_Policy) `allow="tools"`:
 
@@ -328,7 +336,7 @@ Calls to `document.modelContext.registerTool()` will return a promise rejected w
 
 #### Cross-origin iframe exposure: `registerTool() and `exposedTo`
 
-By default, tools registered by a document are only exposed to itself, same-origin documents in the same tree, and built-in browser agents (see this <a href=#built-in-agent-default-exposure>discussion</a>). To support author-provided agents running in frames, developers can selectively share tools with secure origins of their choice, `exposedTo` option during registration:
+By default, tools registered by a document are only exposed to itself, same-origin documents in the same tree, and built-in browser agents (see this <a href=#built-in-agent-default-exposure>discussion</a>). To support author-provided agents running in frames, developers can selectively share tools with specific secure origins via the `exposedTo` option:
 
 ```js
 await document.modelContext.registerTool({
@@ -402,7 +410,7 @@ const executionPromise = document.modelContext.executeTool(
 stopButton.addEventListener('click', e => controller.abort());
 ```
 
-The tool's [execution callback](https://webmachinelearning.github.io/webmcp/#callbackdef-toolexecutecallback) receives this signal via its [`options.signal`](https://webmachinelearning.github.io/webmcp/#dom-modelcontextexecutetooloptions-signal) parameter, allowing it to abort underlying network requests or asynchronous tasks cleanly.
+The tool's [execution callback](https://webmachinelearning.github.io/webmcp/#callbackdef-toolexecutecallback) receives a corresponding signal via its [`options.signal`](https://webmachinelearning.github.io/webmcp/#dom-toolexecutecallbackoptions-signal) parameter, allowing it to abort underlying network requests or asynchronous tasks cleanly.
 
 ##### Responding to dynamic tool updates: the `toolchange` event
 
@@ -414,6 +422,36 @@ document.modelContext.addEventListener("toolchange", async () => {
   updateAgentToolRegistry(currentTools);
 });
 ```
+
+
+## Best Practices
+
+Designing tools for AI agents requires different considerations than building traditional user interfaces or server-side APIs. For comprehensive guidance, see the [Chrome WebMCP Best Practices guide](https://developer.chrome.com/docs/ai/webmcp/best-practices) and [Creating Security-Minded Tools](https://developer.chrome.com/docs/ai/webmcp/secure-tools). Key recommendations include:
+
+### Tool Strategy and Budget
+
+- **Mind the tool budget and context window**: While the WebMCP specification does not define an arbitrary architectural limit on how many tools a page can register, AI models have finite context windows. Every registered tool (its name, description, and input schema) consumes tokens in the model prompt, adds to inference latency, and increases the potential for tool confusion or hallucination. Exposing too many tools (e.g., dozens or hundreds) can severely degrade agent performance or lead agent browsers to drop tools or fail to process them.
+- **Single responsibility**: Each tool should represent a single, well-defined function. Avoid registering overlapping or redundant tools that perform similar actions, as this confuses the agent during tool selection.
+- **Manage tool registration dynamically**: Rather than registering a large catalog of tools upfront, dynamically register tools relevant to the active page state or workflow, and unregister them when no longer applicable by aborting the `AbortSignal` passed to `registerTool()` (or removing form attributes in the declarative API).
+- **Default to static registration for simple apps**: For simpler web applications with a handful of tools, static registration on page load is recommended. Dynamic lifecycle management is most valuable for complex, multi-state applications.
+- **Trust the agent**: Frame tool descriptions around what the tool accomplishes and what inputs it requires, rather than trying to enforce rigid step-by-step procedural chains through prompt text.
+
+### Clear Language and Semantic Naming
+
+- **Precise verbs and distinctions**: Distinguish immediate execution from initiating a workflow (e.g., `create-event` to immediately book an event vs. `start-event-creation` to navigate to an event form).
+- **Positive, descriptive instructions**: Tool descriptions should clearly state what the tool does and when to use it. Prefer positive framing ("This tool searches products by keyword...") over negative constraints ("Do not use this for orders").
+
+### Minimize Cognitive Computing for the Model
+
+- **Accept raw user input**: Do not require the model to perform mental math, convert time zones, or transform complex strings. Accept raw input where reasonable and handle normalization in your client code.
+- **Use self-explanatory enum values and types**: Prefer natural language strings in enums (e.g., `shippingMethod: "express"`) rather than arbitrary internal IDs (e.g., `shippingId: 1`).
+- **Document schemas with descriptions**: Provide helpful `description` fields on all input parameters in `inputSchema` to help the agent supply appropriate values.
+
+### Reliability and Error Handling
+
+- **Validate strictly in code, loosely in schema**: Schema constraints provide hints to models, but strict schema validation failures can cause agents to stall. Perform detailed validation in your `execute` handler and return clear, actionable error messages so the agent can self-correct and retry with valid arguments.
+- **Handle rate limits and failures gracefully**: If an action is rate-limited or fails, return an informative error message or instruct the agent to ask the user to complete the task manually in the UI.
+- **Synchronize visual UI state**: Ensure the web page's visual UI updates immediately to reflect actions taken by tools. AI agents and human users collaborate in the same browser session, so shared, synchronized state is essential.
 
 
 ## Alternatives Considered
